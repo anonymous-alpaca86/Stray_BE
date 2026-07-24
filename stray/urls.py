@@ -19,14 +19,15 @@ from django.urls import path
 from rest_framework.authtoken.views import obtain_auth_token
 from django.conf import settings
 from django.conf.urls.static import static
-from posts.views import ClaimPetView, MyPetView, PetListView, PetDetailView
+from posts.views import ClaimPetView, MyPetView, PetListView, PetDetailView,SignUpView,index
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/token/',obtain_auth_token),
-
+    path('',index),
     path('pets/',PetListView.as_view()),
     path('pets/my-pets/',MyPetView.as_view()),
     path('pets/<int:pk>/',PetDetailView.as_view()),
     path('pets/<int:pk>/claim/',ClaimPetView.as_view()),
-    
+    path('signup/',SignUpView.as_view()),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

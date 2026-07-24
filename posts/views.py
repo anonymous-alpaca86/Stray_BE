@@ -1,16 +1,22 @@
 from django.shortcuts import render
 
 # Create your views here.
-from rest_framework import generics, status, permissions,filters
+from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import PetSerializer, UserSerializer
-from .models import Pet
+from .models import Pet,User
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import NotFound, PermissionDenied
-
+from rest_framework.permissions import BasePermission
+from django.http import JsonResponse
+class IsOwnerOrReadOnly(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in ['GET','HEAD','OPTIONS']:
+            return True
+        return obj.posted_by == request.user
 class PetPagination(PageNumberPagination):
     page_size = 12
     page_size_query_param = 'page_size'  # user can change page size
@@ -22,7 +28,6 @@ class PetListView(generics.ListCreateAPIView):
     filterset_fields=['species','status','location']
     pagination_class = PetPagination
     parser_classes = [MultiPartParser, FormParser]
-
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['description', 'location', 'color']
     ordering_fields = ['created_at', 'species']
@@ -33,25 +38,29 @@ class PetListView(generics.ListCreateAPIView):
 class PetDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset=Pet.objects.all()
     serializer_class=PetSerializer
+    permission_classes=[IsOwnerOrReadOnly]
 
     def get_object(self):
-        try:
-            pet=Pet.objects.get(pk=self.kwargs['pk'])
-        except Pet.DoesNotExist:
-            raise NotFound("Pet not found")
-        if pet.posted_by !=self.request.user:
-            raise PermissionDenied("You don't own this pet")
-        return pet
+        return get_object_or_404(Pet, pk=self.kwargs["pk"])       
 class ClaimPetView(APIView):
     def post(self,request,pk):
         pet=get_object_or_404(Pet, pk=pk)
         pet.status="claimed"
-        pet.saved()
+        pet.save()
         return Response({
             "status":"claimed"
         })
 class MyPetView(generics.ListAPIView):
     serializer_class=PetSerializer
     def get_queryset(self):
-        return Pet.bjects.filter(posted_by=self.request.user)
+        return Pet.objects.filter(posted_by=self.request.user)
 
+class SignUpView(generics.CreateAPIView):
+    queryset=User.objects.all()
+    serializer_class=UserSerializer
+
+def index(request):
+    return JsonResponse({
+        "message":"Welcome to the Stray API",
+        "version":"1.0",
+    })
